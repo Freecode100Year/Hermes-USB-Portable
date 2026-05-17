@@ -261,7 +261,27 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to install Hermes dependencies" }
 Write-Done "Dependencies installed"
 
 # ---------------------------------------------------------------------------
-# 9. Install Playwright browsers (optional, for web tools)
+# 9. Install messaging dependencies (Telegram, etc.)
+# ---------------------------------------------------------------------------
+# Hermes [all] intentionally excludes messaging deps for size.
+# The lazy-install system is supposed to auto-install on first use,
+# but it can fail silently in some environments. Pre-install here
+# so Telegram works out of the box.
+# ---------------------------------------------------------------------------
+Write-Step "Installing messaging dependencies (Telegram) ..."
+try {
+    & $uvExe pip install --python $venvPython "python-telegram-bot[webhooks]==22.6"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Done "python-telegram-bot ready"
+    } else {
+        Write-Warn "python-telegram-bot install returned non-zero - will retry on first use"
+    }
+} catch {
+    Write-Warn "python-telegram-bot install failed - will retry on first use"
+}
+
+# ---------------------------------------------------------------------------
+# 10. Install Playwright browsers (optional, for web tools)
 # ---------------------------------------------------------------------------
 Write-Step "Installing Playwright browsers (optional) ..."
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $RuntimeDir "playwright"
@@ -273,7 +293,7 @@ try {
 }
 
 # ---------------------------------------------------------------------------
-# 10. Mark ready
+# 11. Mark ready
 # ---------------------------------------------------------------------------
 "" | Out-File (Join-Path $RuntimeDir "ready.flag") -Encoding utf8
 

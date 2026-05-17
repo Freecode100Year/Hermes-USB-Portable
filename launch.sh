@@ -98,4 +98,20 @@ if [ "$1" = "hermes" ] || [ "$1" = "HERMES" ]; then
     shift
 fi
 
-hermes "$@"
+# If no arguments given, auto-detect first-run vs chat
+if [ $# -eq 0 ]; then
+    SETUP_DONE=0
+    if [ -f "$HERMES_HOME/.env" ] && grep -q '^[A-Z].*=' "$HERMES_HOME/.env"; then
+        SETUP_DONE=1
+    fi
+    if [ "$SETUP_DONE" -eq 0 ]; then
+        echo ""
+        echo "[First run] No API key found. Starting setup wizard..."
+        echo ""
+        hermes setup
+    else
+        hermes
+    fi
+else
+    hermes "$@"
+fi

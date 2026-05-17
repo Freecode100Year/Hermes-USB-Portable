@@ -311,7 +311,22 @@ fi
 done_msg "Dependencies installed"
 
 # ---------------------------------------------------------------------------
-# 9. Install Playwright browsers (optional)
+# 9. Install messaging dependencies (Telegram, etc.)
+# ---------------------------------------------------------------------------
+# Hermes [all] intentionally excludes messaging deps for size.
+# The lazy-install system is supposed to auto-install on first use,
+# but it can fail silently in some environments. Pre-install here
+# so Telegram works out of the box.
+# ---------------------------------------------------------------------------
+step "Installing messaging dependencies (Telegram) ..."
+if "$UV_EXE" pip install --python "$VENV_PYTHON" "python-telegram-bot[webhooks]==22.6"; then
+    done_msg "python-telegram-bot ready"
+else
+    warn_msg "python-telegram-bot install failed - will retry on first use"
+fi
+
+# ---------------------------------------------------------------------------
+# 10. Install Playwright browsers (optional)
 # ---------------------------------------------------------------------------
 step "Installing Playwright browsers (optional) ..."
 export PLAYWRIGHT_BROWSERS_PATH="$RUNTIME_DIR/playwright"
@@ -322,7 +337,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 10. Mark ready
+# 11. Mark ready
 # ---------------------------------------------------------------------------
 touch "$RUNTIME_DIR/ready.flag"
 rm -rf "$TMP_DIR"

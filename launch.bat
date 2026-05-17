@@ -73,5 +73,24 @@ set "ARGS=%*"
 if /I "%~1"=="hermes" (
     set "ARGS=%ARGS:~7%"
 )
-hermes %ARGS%
+
+REM If no arguments given, auto-detect first-run vs chat
+if "%ARGS%"=="" (
+    REM Check if setup has been completed (look for API key in .env)
+    set "SETUP_DONE=0"
+    if exist "%HERMES_HOME%\.env" (
+        findstr /R /C:"^[A-Z].*=" "%HERMES_HOME%\.env" >/dev/null 2>&1
+        if not errorlevel 1 set "SETUP_DONE=1"
+    )
+    if "!SETUP_DONE!"=="0" (
+        echo.
+        echo [First run] No API key found. Starting setup wizard...
+        echo.
+        hermes setup
+    ) else (
+        hermes
+    )
+) else (
+    hermes %ARGS%
+)
 exit /b
