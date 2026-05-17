@@ -74,23 +74,226 @@ if /I "%~1"=="hermes" (
     set "ARGS=%ARGS:~7%"
 )
 
-REM If no arguments given, auto-detect first-run vs chat
-if "%ARGS%"=="" (
-    REM Check if setup has been completed (look for API key in .env)
-    set "SETUP_DONE=0"
-    if exist "%HERMES_HOME%\.env" (
-        findstr /R /C:"^[A-Z].*=" "%HERMES_HOME%\.env" >/dev/null 2>&1
-        if not errorlevel 1 set "SETUP_DONE=1"
-    )
-    if "!SETUP_DONE!"=="0" (
-        echo.
-        echo [First run] No API key found. Starting setup wizard...
-        echo.
-        hermes setup
-    ) else (
-        hermes
-    )
-) else (
+REM If explicit arguments were passed, run Hermes directly (skip menu)
+if not "%ARGS%"=="" (
     hermes %ARGS%
+    exit /b
 )
+
+REM ---------------------------------------------------------------------------
+REM ANSI Color Setup
+REM ---------------------------------------------------------------------------
+for /f %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+set "RESET=%ESC%[0m"
+set "BOLD=%ESC%[1m"
+set "DIM=%ESC%[2m"
+set "CYAN=%ESC%[36m"
+set "BRIGHT_CYAN=%ESC%[96m"
+set "GREEN=%ESC%[32m"
+set "BRIGHT_GREEN=%ESC%[92m"
+set "YELLOW=%ESC%[33m"
+set "BRIGHT_YELLOW=%ESC%[93m"
+set "RED=%ESC%[31m"
+set "BRIGHT_RED=%ESC%[91m"
+set "WHITE=%ESC%[37m"
+set "BRIGHT_WHITE=%ESC%[97m"
+set "GRAY=%ESC%[90m"
+set "BG_CYAN=%ESC%[46m%ESC%[30m"
+set "BG_DARK=%ESC%[40m%ESC%[37m"
+
+REM ---------------------------------------------------------------------------
+REM Status Detection
+REM ---------------------------------------------------------------------------
+:detect_status
+set "SETUP_STATUS=Not configured"
+set "SETUP_ICON=[x]"
+set "SETUP_COLOR=%RED%"
+set "PROVIDER_NAME="
+set "MODEL_NAME="
+if exist "%HERMES_HOME%\.env" (
+    findstr /R /C:"^[A-Z].*=" "%HERMES_HOME%\.env" >nul 2>&1
+    if not errorlevel 1 (
+        set "SETUP_STATUS=Configured"
+        set "SETUP_ICON=[OK]"
+        set "SETUP_COLOR=%BRIGHT_GREEN%"
+    )
+)
+
+if exist "%HERMES_HOME%\config.yaml" (
+    for /f "usebackq tokens=2 delims=: " %%a in (`findstr /R /C:"^  provider:" "%HERMES_HOME%\config.yaml"`) do (
+        if not defined PROVIDER_NAME set "PROVIDER_NAME=%%a"
+    )
+    for /f "usebackq tokens=2 delims=: " %%a in (`findstr /R /C:"^  default:" "%HERMES_HOME%\config.yaml"`) do (
+        if not defined MODEL_NAME set "MODEL_NAME=%%a"
+    )
+)
+
+set "GATEWAY_STATUS=Stopped"
+set "GATEWAY_ICON=[ ]"
+set "GATEWAY_COLOR=%GRAY%"
+set "GATEWAY_PID="
+if exist "%HERMES_HOME%\gateway.pid" (
+    for /f "usebackq tokens=2 delims=:," %%a in (`findstr /R /C:"\"pid\"" "%HERMES_HOME%\gateway.pid"`) do (
+        set "raw=%%a"
+        set "GATEWAY_PID=!raw: =!"
+    )
+)
+if defined GATEWAY_PID (
+    tasklist /FI "PID eq !GATEWAY_PID!" 2>nul | findstr /I "!GATEWAY_PID!" >nul
+    if not errorlevel 1 (
+        set "GATEWAY_STATUS=Running (PID !GATEWAY_PID!)"
+        set "GATEWAY_ICON=[OK]"
+        set "GATEWAY_COLOR=%BRIGHT_GREEN%"
+    ) else (
+        set "GATEWAY_STATUS=Stopped (stale lock)"
+        set "GATEWAY_ICON=[!]"
+        set "GATEWAY_COLOR=%YELLOW%"
+    )
+)
+
+set "HERMES_VERSION=unknown"
+if exist "%SRC_DIR%\hermes-agent\hermes_cli\__init__.py" (
+    for /f "usebackq tokens=3" %%a in (`findstr /R /C:"__version__" "%SRC_DIR%\hermes-agent\hermes_cli\__init__.py"`) do (
+        set "rawver=%%a"
+        set "HERMES_VERSION=!rawver:"=!"
+    )
+)
+
+REM ---------------------------------------------------------------------------
+REM Main Menu
+REM ---------------------------------------------------------------------------
+:show_menu
+echo.
+echo.
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo %BOLD%%BRIGHT_WHITE%                    HERMES PORTABLE LAUNCHER%RESET%
+echo %DIM%%GRAY%                         AI Agent for Everyone%RESET%
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo.
+echo  %DIM%Setup%RESET%    !SETUP_COLOR!!SETUP_ICON!%RESET% %WHITE%!SETUP_STATUS!%RESET%
+if defined PROVIDER_NAME echo  %DIM%Provider%RESET% %CYAN%!PROVIDER_NAME!%RESET%
+if defined MODEL_NAME echo  %DIM%Model%RESET%    %WHITE%!MODEL_NAME!%RESET%
+echo  %DIM%Gateway%RESET%  !GATEWAY_COLOR!!GATEWAY_ICON!%RESET% %WHITE%!GATEWAY_STATUS!%RESET%
+echo  %DIM%Version%RESET%  %GRAY%v!HERMES_VERSION!%RESET%
+echo.
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo.
+echo  %BRIGHT_YELLOW%[1]%RESET%  %WHITE%Start Hermes Chat%RESET%
+echo  %BRIGHT_YELLOW%[2]%RESET%  %WHITE%Setup / Reconfigure Hermes%RESET%
+if "!GATEWAY_STATUS!"=="Running (PID !GATEWAY_PID!)" (
+    echo  %BRIGHT_YELLOW%[3]%RESET%  %WHITE%Stop Gateway%RESET%  %RED%[live]%RESET%
+) else (
+    echo  %BRIGHT_YELLOW%[3]%RESET%  %WHITE%Start Gateway%RESET%
+)
+echo  %BRIGHT_YELLOW%[4]%RESET%  %WHITE%Advanced Options%RESET%  %GRAY%--^>%RESET%
+echo  %BRIGHT_YELLOW%[5]%RESET%  %GRAY%Exit%RESET%
+echo.
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo.
+
+echo %BRIGHT_CYAN%Select option:%RESET% & choice /C 12345 /N
+if errorlevel 5 goto :menu_exit
+if errorlevel 4 goto :show_advanced
+if errorlevel 3 goto :menu_gateway
+if errorlevel 2 goto :menu_setup
+if errorlevel 1 goto :menu_chat
+goto :show_menu
+
+REM ---------------------------------------------------------------------------
+REM Menu Actions
+REM ---------------------------------------------------------------------------
+:menu_chat
+echo.
+hermes
+goto :show_menu
+
+:menu_setup
+echo.
+hermes setup
+goto :detect_status
+
+:menu_gateway
+if "!GATEWAY_STATUS!"=="Running (PID !GATEWAY_PID!)" (
+    hermes gateway stop
+    echo.
+    echo %BRIGHT_GREEN%Gateway stopped.%RESET%
+) else (
+    echo.
+    echo %CYAN%Starting gateway in background ...%RESET%
+    start "" hermes gateway
+    timeout /t 2 /nobreak >nul
+)
+pause
+goto :detect_status
+
+:menu_exit
+echo.
+echo.
+echo %GRAY%Goodbye!%RESET%
+echo.
 exit /b
+
+REM ---------------------------------------------------------------------------
+REM Advanced Menu
+REM ---------------------------------------------------------------------------
+:show_advanced
+echo.
+echo.
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo %BOLD%%BRIGHT_WHITE%                       Advanced Options%RESET%
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo.
+echo  %BRIGHT_YELLOW%[1]%RESET%  %WHITE%Run Doctor%RESET%            %GRAY%- check for issues%RESET%
+echo  %BRIGHT_YELLOW%[2]%RESET%  %WHITE%View Logs%RESET%             %GRAY%- last 20 lines%RESET%
+echo  %BRIGHT_YELLOW%[3]%RESET%  %WHITE%Edit Config%RESET%           %GRAY%- open in editor%RESET%
+echo  %BRIGHT_YELLOW%[4]%RESET%  %WHITE%Restart Gateway%RESET%       %GRAY%- stop + start%RESET%
+echo  %BRIGHT_YELLOW%[5]%RESET%  %WHITE%Update Hermes%RESET%         %GRAY%- fetch latest%RESET%
+echo  %BRIGHT_YELLOW%[6]%RESET%  %GRAY%Back to Main Menu%RESET%
+echo.
+echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
+echo.
+
+echo %BRIGHT_CYAN%Select option:%RESET% & choice /C 123456 /N
+if errorlevel 6 goto :show_menu
+if errorlevel 5 goto :adv_update
+if errorlevel 4 goto :adv_restart
+if errorlevel 3 goto :adv_config
+if errorlevel 2 goto :adv_logs
+if errorlevel 1 goto :adv_doctor
+goto :show_advanced
+
+:adv_doctor
+echo.
+hermes doctor
+pause
+goto :show_advanced
+
+:adv_logs
+echo.
+if exist "%HERMES_HOME%\logs\gateway.log" (
+    echo %CYAN%=== Gateway Log (last 20 lines) ===%RESET%
+    powershell -Command "Get-Content '%HERMES_HOME%\logs\gateway.log' -Tail 20"
+) else (
+    echo %YELLOW%No logs found.%RESET%
+)
+echo.
+pause
+goto :show_advanced
+
+:adv_config
+echo.
+hermes config edit
+goto :show_advanced
+
+:adv_restart
+hermes gateway restart
+echo.
+echo %BRIGHT_GREEN%Gateway restarted.%RESET%
+pause
+goto :detect_status
+
+:adv_update
+echo.
+hermes update
+pause
+goto :show_advanced

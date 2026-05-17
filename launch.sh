@@ -98,20 +98,235 @@ if [ "$1" = "hermes" ] || [ "$1" = "HERMES" ]; then
     shift
 fi
 
-# If no arguments given, auto-detect first-run vs chat
-if [ $# -eq 0 ]; then
-    SETUP_DONE=0
-    if [ -f "$HERMES_HOME/.env" ] && grep -q '^[A-Z].*=' "$HERMES_HOME/.env"; then
-        SETUP_DONE=1
-    fi
-    if [ "$SETUP_DONE" -eq 0 ]; then
-        echo ""
-        echo "[First run] No API key found. Starting setup wizard..."
-        echo ""
-        hermes setup
-    else
-        hermes
-    fi
-else
+# If explicit arguments were passed, run Hermes directly (skip menu)
+if [ $# -gt 0 ]; then
     hermes "$@"
+    exit 0
 fi
+
+# ---------------------------------------------------------------------------
+# ANSI Colors
+# ---------------------------------------------------------------------------
+ESC='\033'
+RESET="${ESC}[0m"
+BOLD="${ESC}[1m"
+DIM="${ESC}[2m"
+CYAN="${ESC}[36m"
+BRIGHT_CYAN="${ESC}[96m"
+GREEN="${ESC}[32m"
+BRIGHT_GREEN="${ESC}[92m"
+YELLOW="${ESC}[33m"
+BRIGHT_YELLOW="${ESC}[93m"
+RED="${ESC}[31m"
+BRIGHT_RED="${ESC}[91m"
+WHITE="${ESC}[37m"
+BRIGHT_WHITE="${ESC}[97m"
+GRAY="${ESC}[90m"
+
+# ---------------------------------------------------------------------------
+# Status Detection
+# ---------------------------------------------------------------------------
+detect_status() {
+    SETUP_STATUS="Not configured"
+    SETUP_ICON="[x]"
+    SETUP_COLOR="$RED"
+    PROVIDER_NAME=""
+    MODEL_NAME=""
+
+    if [ -f "$HERMES_HOME/.env" ] && grep -q '^[A-Z].*=' "$HERMES_HOME/.env"; then
+        SETUP_STATUS="Configured"
+        SETUP_ICON="[OK]"
+        SETUP_COLOR="$BRIGHT_GREEN"
+    fi
+
+    if [ -f "$HERMES_HOME/config.yaml" ]; then
+        PROVIDER_NAME=$(grep '^  provider:' "$HERMES_HOME/config.yaml" | head -n 1 | awk '{print $2}' || true)
+        MODEL_NAME=$(grep '^  default:' "$HERMES_HOME/config.yaml" | head -n 1 | awk '{print $2}' || true)
+    fi
+
+    GATEWAY_STATUS="Stopped"
+    GATEWAY_ICON="[ ]"
+    GATEWAY_COLOR="$GRAY"
+    GATEWAY_PID=""
+
+    if [ -f "$HERMES_HOME/gateway.pid" ]; then
+        GATEWAY_PID=$(grep -o '"pid":[0-9]*' "$HERMES_HOME/gateway.pid" | grep -o '[0-9]*' || true)
+    fi
+
+    if [ -n "$GATEWAY_PID" ]; then
+        if kill -0 "$GATEWAY_PID" 2>/dev/null; then
+            GATEWAY_STATUS="Running (PID $GATEWAY_PID)"
+            GATEWAY_ICON="[OK]"
+            GATEWAY_COLOR="$BRIGHT_GREEN"
+        else
+            GATEWAY_STATUS="Stopped (stale lock)"
+            GATEWAY_ICON="[!]"
+            GATEWAY_COLOR="$YELLOW"
+        fi
+    fi
+
+    HERMES_VERSION="unknown"
+    if [ -f "$SRC_DIR/hermes-agent/hermes_cli/__init__.py" ]; then
+        HERMES_VERSION=$(grep '__version__' "$SRC_DIR/hermes-agent/hermes_cli/__init__.py" | head -n 1 | sed 's/.*"\(.*\)".*/\1/')
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Main Menu
+# ---------------------------------------------------------------------------
+show_menu() {
+    clear
+    echo ""
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo -e "${BOLD}${BRIGHT_WHITE}                    HERMES PORTABLE LAUNCHER${RESET}"
+    echo -e "${DIM}${GRAY}                         AI Agent for Everyone${RESET}"
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo ""
+    echo -e " ${DIM}Setup${RESET}    ${SETUP_COLOR}${SETUP_ICON}${RESET} ${WHITE}${SETUP_STATUS}${RESET}"
+    [ -n "$PROVIDER_NAME" ] && echo -e " ${DIM}Provider${RESET} ${CYAN}${PROVIDER_NAME}${RESET}"
+    [ -n "$MODEL_NAME" ] && echo -e " ${DIM}Model${RESET}    ${WHITE}${MODEL_NAME}${RESET}"
+    echo -e " ${DIM}Gateway${RESET}  ${GATEWAY_COLOR}${GATEWAY_ICON}${RESET} ${WHITE}${GATEWAY_STATUS}${RESET}"
+    echo -e " ${DIM}Version${RESET}  ${GRAY}v${HERMES_VERSION}${RESET}"
+    echo ""
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo ""
+    echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Start Hermes Chat${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Setup / Reconfigure Hermes${RESET}"
+    if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
+        echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Stop Gateway${RESET}  ${RED}[live]${RESET}"
+    else
+        echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Start Gateway${RESET}"
+    fi
+    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Advanced Options${RESET}  ${GRAY}-->${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${GRAY}Exit${RESET}"
+    echo ""
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo ""
+    read -p "$(echo -e "${BRIGHT_CYAN}Select option: ${RESET}")" choice
+
+    case "$choice" in
+        1) menu_chat ;;
+        2) menu_setup ;;
+        3) menu_gateway ;;
+        4) show_advanced ;;
+        5) menu_exit ;;
+        *) show_menu ;;
+    esac
+}
+
+menu_chat() {
+    clear
+    hermes
+    show_menu
+}
+
+menu_setup() {
+    clear
+    hermes setup
+    detect_status
+    show_menu
+}
+
+menu_gateway() {
+    if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
+        hermes gateway stop
+        echo ""
+        echo -e "${BRIGHT_GREEN}Gateway stopped.${RESET}"
+    else
+        echo ""
+        echo -e "${CYAN}Starting gateway in background ...${RESET}"
+        hermes gateway &
+        sleep 2
+    fi
+    read -p "Press Enter to continue ..."
+    detect_status
+    show_menu
+}
+
+menu_exit() {
+    clear
+    echo ""
+    echo -e "${GRAY}Goodbye!${RESET}"
+    echo ""
+    exit 0
+}
+
+# ---------------------------------------------------------------------------
+# Advanced Menu
+# ---------------------------------------------------------------------------
+show_advanced() {
+    clear
+    echo ""
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo -e "${BOLD}${BRIGHT_WHITE}                       Advanced Options${RESET}"
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo ""
+    echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Run Doctor${RESET}            ${GRAY}- check for issues${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}View Logs${RESET}             ${GRAY}- last 20 lines${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Edit Config${RESET}           ${GRAY}- open in editor${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Restart Gateway${RESET}       ${GRAY}- stop + start${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}Update Hermes${RESET}         ${GRAY}- fetch latest${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${GRAY}Back to Main Menu${RESET}"
+    echo ""
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo ""
+    read -p "$(echo -e "${BRIGHT_CYAN}Select option: ${RESET}")" choice
+
+    case "$choice" in
+        1) adv_doctor ;;
+        2) adv_logs ;;
+        3) adv_config ;;
+        4) adv_restart ;;
+        5) adv_update ;;
+        6) show_menu ;;
+        *) show_advanced ;;
+    esac
+}
+
+adv_doctor() {
+    clear
+    hermes doctor
+    read -p "Press Enter to continue ..."
+    show_advanced
+}
+
+adv_logs() {
+    clear
+    if [ -f "$HERMES_HOME/logs/gateway.log" ]; then
+        echo -e "${CYAN}=== Gateway Log (last 20 lines) ===${RESET}"
+        tail -n 20 "$HERMES_HOME/logs/gateway.log"
+    else
+        echo -e "${YELLOW}No logs found.${RESET}"
+    fi
+    echo ""
+    read -p "Press Enter to continue ..."
+    show_advanced
+}
+
+adv_config() {
+    clear
+    hermes config edit
+    show_advanced
+}
+
+adv_restart() {
+    hermes gateway restart
+    echo ""
+    echo -e "${BRIGHT_GREEN}Gateway restarted.${RESET}"
+    read -p "Press Enter to continue ..."
+    detect_status
+    show_menu
+}
+
+adv_update() {
+    clear
+    hermes update
+    read -p "Press Enter to continue ..."
+    show_advanced
+}
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+detect_status
+show_menu
