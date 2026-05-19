@@ -70,7 +70,7 @@ if [ "$PLATFORM" = "macos" ]; then
     PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${PYTHON_ARCH}-apple-darwin-install_only.tar.gz"
     NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-${ARCH}.tar.gz"
     UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${PYTHON_ARCH}-apple-darwin.tar.gz"
-    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-universal-apple-darwin.tar.gz"
+    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${PYTHON_ARCH}-apple-darwin.tar.gz"
 else
     PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${ARCH_RAW}-unknown-linux-gnu-install_only.tar.gz"
     NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${ARCH}.tar.xz"
@@ -106,8 +106,21 @@ download() {
         local size
         size="$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null || echo 0)"
         if [ "$size" -gt 0 ]; then
-            echo "        $name already cached ($(( size / 1024 / 1024 )) MB)."
-            return 0
+            # Verify archive integrity to handle interrupted downloads
+            local corrupt=0
+            if [[ "$name" == *.tar.gz ]]; then
+                gzip -t "$out" 2>/dev/null || corrupt=1
+            elif [[ "$name" == *.tar.xz ]]; then
+                xz -t "$out" 2>/dev/null || corrupt=1
+            fi
+            
+            if [ "$corrupt" -eq 1 ]; then
+                warn "$name is corrupted or incomplete — deleting and re-downloading ..."
+                rm -f "$out"
+            else
+                echo "        $name already cached ($(( size / 1024 / 1024 )) MB)."
+                return 0
+            fi
         else
             warn "$name exists but is 0 bytes — re-downloading ..."
             rm -f "$out"
@@ -148,7 +161,8 @@ extract_tgz() {
     mkdir -p "$dest"
     if ! tar -xzf "$archive" -C "$dest" --strip-components=1; then
         rm -rf "$dest"
-        echo "        ERROR: tar extraction failed for $(basename "$archive")"
+        rm -f "$archive"
+        echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
         return 1
     fi
 }
@@ -164,7 +178,8 @@ extract_txz() {
     mkdir -p "$dest"
     if ! tar -xf "$archive" -C "$dest" --strip-components=1; then
         rm -rf "$dest"
-        echo "        ERROR: tar extraction failed for $(basename "$archive")"
+        rm -f "$archive"
+        echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
         return 1
     fi
 }
@@ -178,7 +193,12 @@ if ! download "$PYTHON_URL" "$PY_ARCHIVE"; then
     echo "[ERROR] Failed to download Python. Check your internet connection."
     exit 1
 fi
-extract_tgz "$PY_ARCHIVE" "$RUNTIME_DIR/python"
+# Bug fix: skip re-extraction if already unpacked (saves ~30s on repeat runs)
+if [ ! -d "$RUNTIME_DIR/python/bin" ]; then
+    extract_tgz "$PY_ARCHIVE" "$RUNTIME_DIR/python"
+else
+    echo "        Already extracted — skipping."
+fi
 done_msg "Python ready"
 
 # ---------------------------------------------------------------------------
@@ -192,14 +212,19 @@ fi
 if ! download "$NODE_URL" "$NODE_ARCHIVE"; then
     warn "Node.js download failed — web tools may be limited"
 else
-    if [ "$PLATFORM" = "macos" ]; then
-        extract_tgz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
-            warn "Node.js extraction failed — web tools may be limited"
-        }
+    # Bug fix: skip re-extraction if already unpacked
+    if [ ! -d "$RUNTIME_DIR/node/bin" ]; then
+        if [ "$PLATFORM" = "macos" ]; then
+            extract_tgz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
+                warn "Node.js extraction failed — web tools may be limited"
+            }
+        else
+            extract_txz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
+                warn "Node.js extraction failed — web tools may be limited"
+            }
+        fi
     else
-        extract_txz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
-            warn "Node.js extraction failed — web tools may be limited"
-        }
+        echo "        Already extracted — skipping."
     fi
     [ -d "$RUNTIME_DIR/node/bin" ] && done_msg "Node.js ready"
 fi
@@ -295,8 +320,8 @@ if [ ! -x "$PYTHON_EXE" ]; then
     exit 1
 fi
 
-"$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE"
-if [ $? -ne 0 ]; then
+# Bug fix: bare $? check doesn't work under set -e; use if ! pattern instead
+if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE"; then
     echo "[ERROR] Failed to create virtual environment"
     exit 1
 fi
@@ -309,8 +334,8 @@ step "Installing Hermes Python dependencies ..."
 echo "        This may take 3-10 minutes depending on your connection."
 VENV_PYTHON="$VENV_DIR/bin/python"
 
-"$UV_EXE" pip install --python "$VENV_PYTHON" -e "$SRC_DIR/hermes-agent[all]"
-if [ $? -ne 0 ]; then
+# Bug fix: bare $? check doesn't work under set -e; use if ! pattern instead
+if ! "$UV_EXE" pip install --python "$VENV_PYTHON" -e "$SRC_DIR/hermes-agent[all]"; then
     echo "[ERROR] Failed to install Hermes dependencies"
     exit 1
 fi
@@ -328,7 +353,7 @@ step "Installing messaging dependencies (Telegram) ..."
 if "$UV_EXE" pip install --python "$VENV_PYTHON" "python-telegram-bot[webhooks]==22.6"; then
     done_msg "python-telegram-bot ready"
 else
-    warn_msg "python-telegram-bot install failed - will retry on first use"
+    warn "python-telegram-bot install failed - will retry on first use"
 fi
 
 # ---------------------------------------------------------------------------
