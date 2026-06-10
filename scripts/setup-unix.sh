@@ -10,8 +10,8 @@ set -e
 
 PORTABLE_ROOT="$1"
 if [ -z "$PORTABLE_ROOT" ]; then
-    echo "Usage: $0 <portable-root>"
-    exit 1
+  echo "Usage: $0 <portable-root>"
+  exit 1
 fi
 
 CACHE_DIR="$PORTABLE_ROOT/.cache"
@@ -24,21 +24,21 @@ OS_RAW="$(uname -s)"
 ARCH_RAW="$(uname -m)"
 
 case "$OS_RAW" in
-    Linux*)     PLATFORM="linux" ;;
-    Darwin*)    PLATFORM="macos" ;;
-    *)
-        echo "[ERROR] Unsupported OS: $OS_RAW"
-        exit 1
-        ;;
+Linux*) PLATFORM="linux" ;;
+Darwin*) PLATFORM="macos" ;;
+*)
+  echo "[ERROR] Unsupported OS: $OS_RAW"
+  exit 1
+  ;;
 esac
 
 case "$ARCH_RAW" in
-    x86_64|amd64) ARCH="x64" ;;
-    aarch64|arm64) ARCH="arm64" ;;
-    *)
-        echo "[ERROR] Unsupported architecture: $ARCH_RAW"
-        exit 1
-        ;;
+x86_64 | amd64) ARCH="x64" ;;
+aarch64 | arm64) ARCH="arm64" ;;
+*)
+  echo "[ERROR] Unsupported architecture: $ARCH_RAW"
+  exit 1
+  ;;
 esac
 
 RUNTIME_DIR="$CACHE_DIR/runtimes/${PLATFORM}-${ARCH}"
@@ -51,10 +51,10 @@ mkdir -p "$RUNTIME_DIR" "$SRC_DIR" "$BIN_DIR" "$TMP_DIR"
 # Health check: if ready.flag exists but core files are missing, start fresh
 # ---------------------------------------------------------------------------
 if [ -f "$RUNTIME_DIR/ready.flag" ]; then
-    if [ ! -x "$RUNTIME_DIR/python/bin/python3" ] || [ ! -x "$RUNTIME_DIR/uv/uv" ] || [ ! -x "$RUNTIME_DIR/venv/bin/hermes" ]; then
-        warn "ready.flag exists but core files are missing — restarting setup ..."
-        rm -f "$RUNTIME_DIR/ready.flag"
-    fi
+  if [ ! -x "$RUNTIME_DIR/python/bin/python3" ] || [ ! -x "$RUNTIME_DIR/uv/uv" ] || [ ! -x "$RUNTIME_DIR/venv/bin/hermes" ]; then
+    warn "ready.flag exists but core files are missing — restarting setup ..."
+    rm -f "$RUNTIME_DIR/ready.flag"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -62,20 +62,20 @@ fi
 # ---------------------------------------------------------------------------
 # python-build-standalone uses "aarch64" while macOS uname -m reports "arm64"
 case "$ARCH_RAW" in
-    arm64) PYTHON_ARCH="aarch64" ;;
-    *)     PYTHON_ARCH="$ARCH_RAW" ;;
+arm64) PYTHON_ARCH="aarch64" ;;
+*) PYTHON_ARCH="$ARCH_RAW" ;;
 esac
 
 if [ "$PLATFORM" = "macos" ]; then
-    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${PYTHON_ARCH}-apple-darwin-install_only.tar.gz"
-    NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-${ARCH}.tar.gz"
-    UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${PYTHON_ARCH}-apple-darwin.tar.gz"
-    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${PYTHON_ARCH}-apple-darwin.tar.gz"
+  PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${PYTHON_ARCH}-apple-darwin-install_only.tar.gz"
+  NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-${ARCH}.tar.gz"
+  UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${PYTHON_ARCH}-apple-darwin.tar.gz"
+  RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${PYTHON_ARCH}-apple-darwin.tar.gz"
 else
-    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${ARCH_RAW}-unknown-linux-gnu-install_only.tar.gz"
-    NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${ARCH}.tar.xz"
-    UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${ARCH_RAW}-unknown-linux-gnu.tar.gz"
-    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${ARCH_RAW}-unknown-linux-musl.tar.gz"
+  PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${ARCH_RAW}-unknown-linux-gnu-install_only.tar.gz"
+  NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${ARCH}.tar.xz"
+  UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${ARCH_RAW}-unknown-linux-gnu.tar.gz"
+  RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${ARCH_RAW}-unknown-linux-musl.tar.gz"
 fi
 
 SOURCE_URL="https://github.com/NousResearch/hermes-agent/archive/refs/heads/main.tar.gz"
@@ -84,104 +84,94 @@ SOURCE_URL="https://github.com/NousResearch/hermes-agent/archive/refs/heads/main
 # Helpers
 # ---------------------------------------------------------------------------
 step() {
-    echo ""
-    echo "[SETUP] $1"
+  echo ""
+  echo "[SETUP] $1"
 }
 
 done_msg() {
-    echo "[OK]    $1"
+  echo "[OK]    $1"
 }
 
 warn() {
-    echo "[WARN]  $1"
+  echo "[WARN]  $1"
 }
 
 download() {
-    local url="$1"
-    local out="$2"
-    local name
-    name="$(basename "$url")"
+  local url="$1"
+  local out="$2"
+  local name
+  name="$(basename "$url")"
 
-    if [ -f "$out" ]; then
-        local size
-        size="$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null || echo 0)"
-        if [ "$size" -gt 0 ]; then
-            # Verify archive integrity to handle interrupted downloads
-            local corrupt=0
-            if [[ "$name" == *.tar.gz ]]; then
-                gzip -t "$out" 2>/dev/null || corrupt=1
-            elif [[ "$name" == *.tar.xz ]]; then
-                xz -t "$out" 2>/dev/null || corrupt=1
-            fi
-            
-            if [ "$corrupt" -eq 1 ]; then
-                warn "$name is corrupted or incomplete — deleting and re-downloading ..."
-                rm -f "$out"
-            else
-                echo "        $name already cached ($(( size / 1024 / 1024 )) MB)."
-                return 0
-            fi
-        else
-            warn "$name exists but is 0 bytes — re-downloading ..."
-            rm -f "$out"
-        fi
-    fi
+  if [ -f "$out" ]; then
+    local size
+    size="$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null || echo 0)"
+    if [ "$size" -gt 0 ]; then
+      # Verify archive integrity to handle interrupted downloads
+      local corrupt=0
+      if [[ "$name" == *.tar.gz ]]; then
+        gzip -t "$out" 2>/dev/null || corrupt=1
+      elif [[ "$name" == *.tar.xz ]]; then
+        xz -t "$out" 2>/dev/null || corrupt=1
+      fi
 
-    echo "        Downloading $name ..."
-    echo "        URL: $url"
-    if ! curl -fL --progress-bar --retry 3 --connect-timeout 30 --max-time 600 "$url" -o "$out"; then
+      if [ "$corrupt" -eq 1 ]; then
+        warn "$name is corrupted or incomplete — deleting and re-downloading ..."
         rm -f "$out"
-        echo "        FAILED to download $name"
-        return 1
+      else
+        echo "        $name already cached ($((size / 1024 / 1024)) MB)."
+        return 0
+      fi
+    else
+      warn "$name exists but is 0 bytes — re-downloading ..."
+      rm -f "$out"
     fi
+  fi
 
-    # Validate downloaded file
-    if [ ! -f "$out" ]; then
-        echo "        Download succeeded but file not found: $out"
-        return 1
-    fi
-    local dsize
-    dsize="$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null || echo 0)"
-    if [ "$dsize" -eq 0 ]; then
-        rm -f "$out"
-        echo "        Downloaded file is 0 bytes: $name"
-        return 1
-    fi
-    echo "        Download complete ($(( dsize / 1024 / 1024 )) MB)."
-}
+  echo "        Downloading $name ..."
+  echo "        URL: $url"
+  if ! curl -fL --progress-bar --retry 3 --connect-timeout 30 --max-time 600 "$url" -o "$out"; then
+    rm -f "$out"
+    echo "        FAILED to download $name"
+    return 1
+  fi
 
-extract_tgz() {
-    local archive="$1"
-    local dest="$2"
-    echo "        Extracting $(basename "$archive") ..."
-    # Clean up partial extraction from previous failed run
-    if [ -d "$dest" ]; then
-        rm -rf "$dest"
-    fi
-    mkdir -p "$dest"
-    if ! tar -xzf "$archive" -C "$dest" --strip-components=1; then
-        rm -rf "$dest"
-        rm -f "$archive"
-        echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
-        return 1
-    fi
+  # Validate downloaded file
+  if [ ! -f "$out" ]; then
+    echo "        Download succeeded but file not found: $out"
+    return 1
+  fi
+  local dsize
+  dsize="$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null || echo 0)"
+  if [ "$dsize" -eq 0 ]; then
+    rm -f "$out"
+    echo "        Downloaded file is 0 bytes: $name"
+    return 1
+  fi
+  echo "        Download complete ($((dsize / 1024 / 1024)) MB)."
 }
 
 extract_txz() {
-    local archive="$1"
-    local dest="$2"
-    echo "        Extracting $(basename "$archive") ..."
-    # Clean up partial extraction from previous failed run
-    if [ -d "$dest" ]; then
-        rm -rf "$dest"
-    fi
-    mkdir -p "$dest"
-    if ! tar -xf "$archive" -C "$dest" --strip-components=1; then
-        rm -rf "$dest"
-        rm -f "$archive"
-        echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
-        return 1
-    fi
+  local archive="$1"
+  local dest="$2"
+  local tmp_dir="/tmp/${dest}_tmp"
+  echo "        Extracting $(basename "$archive") ..."
+  # Clean up partial extraction from previous failed run
+  if [ -d "$dest" ]; then
+    rm -rf "$dest"
+  fi
+  if [ -d "$tmp_dir" ]; then
+    echo "deleting tmp_dir"
+    rm -rf "$tmp_dir"
+  fi
+  mkdir -p "$dest"
+  mkdir -p "$tmp_dir"
+  if ! tar -xf "$archive" -C "$tmp_dir" --strip-components=1; then
+    rm -rf "$tmp_dir"
+    rm -f "$archive"
+    echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
+    return 1
+  fi
+  cp -rfL "$tmp_dir"/* "$dest"/ 2>/dev/null || true
 }
 
 # ---------------------------------------------------------------------------
@@ -190,14 +180,14 @@ extract_txz() {
 step "Installing portable Python 3.11 ..."
 PY_ARCHIVE="$RUNTIME_DIR/python.tar.gz"
 if ! download "$PYTHON_URL" "$PY_ARCHIVE"; then
-    echo "[ERROR] Failed to download Python. Check your internet connection."
-    exit 1
+  echo "[ERROR] Failed to download Python. Check your internet connection."
+  exit 1
 fi
 # Bug fix: skip re-extraction if already unpacked (saves ~30s on repeat runs)
 if [ ! -d "$RUNTIME_DIR/python/bin" ]; then
-    extract_tgz "$PY_ARCHIVE" "$RUNTIME_DIR/python"
+  extract_txz "$PY_ARCHIVE" "$RUNTIME_DIR/python"
 else
-    echo "        Already extracted — skipping."
+  echo "        Already extracted — skipping."
 fi
 done_msg "Python ready"
 
@@ -207,26 +197,26 @@ done_msg "Python ready"
 step "Installing Node.js 22 LTS ..."
 NODE_ARCHIVE="$RUNTIME_DIR/node.tar.xz"
 if [ "$PLATFORM" = "macos" ]; then
-    NODE_ARCHIVE="$RUNTIME_DIR/node.tar.gz"
+  NODE_ARCHIVE="$RUNTIME_DIR/node.tar.gz"
 fi
 if ! download "$NODE_URL" "$NODE_ARCHIVE"; then
-    warn "Node.js download failed — web tools may be limited"
+  warn "Node.js download failed — web tools may be limited"
 else
-    # Bug fix: skip re-extraction if already unpacked
-    if [ ! -d "$RUNTIME_DIR/node/bin" ]; then
-        if [ "$PLATFORM" = "macos" ]; then
-            extract_tgz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
-                warn "Node.js extraction failed — web tools may be limited"
-            }
-        else
-            extract_txz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
-                warn "Node.js extraction failed — web tools may be limited"
-            }
-        fi
+  # Bug fix: skip re-extraction if already unpacked
+  if [ ! -d "$RUNTIME_DIR/node/bin" ]; then
+    if [ "$PLATFORM" = "macos" ]; then
+      extract_txz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
+        warn "Node.js extraction failed — web tools may be limited"
+      }
     else
-        echo "        Already extracted — skipping."
+      extract_txz "$NODE_ARCHIVE" "$RUNTIME_DIR/node" || {
+        warn "Node.js extraction failed — web tools may be limited"
+      }
     fi
-    [ -d "$RUNTIME_DIR/node/bin" ] && done_msg "Node.js ready"
+  else
+    echo "        Already extracted — skipping."
+  fi
+  [ -d "$RUNTIME_DIR/node/bin" ] && done_msg "Node.js ready"
 fi
 
 # ---------------------------------------------------------------------------
@@ -235,18 +225,18 @@ fi
 step "Installing uv ..."
 UV_ARCHIVE="$RUNTIME_DIR/uv.tar.gz"
 if ! download "$UV_URL" "$UV_ARCHIVE"; then
-    echo "[ERROR] Failed to download uv. Aborting."
-    exit 1
+  echo "[ERROR] Failed to download uv. Aborting."
+  exit 1
 fi
 rm -rf "$RUNTIME_DIR/uv"
 mkdir -p "$RUNTIME_DIR/uv"
 if tar -xzf "$UV_ARCHIVE" -C "$RUNTIME_DIR/uv" --strip-components=1; then
-    chmod +x "$RUNTIME_DIR/uv/uv" 2>/dev/null || true
-    done_msg "uv ready"
+  chmod +x "$RUNTIME_DIR/uv/uv" 2>/dev/null || true
+  done_msg "uv ready"
 else
-    rm -rf "$RUNTIME_DIR/uv"
-    echo "[ERROR] Failed to extract uv. Aborting."
-    exit 1
+  rm -rf "$RUNTIME_DIR/uv"
+  echo "[ERROR] Failed to extract uv. Aborting."
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -255,22 +245,22 @@ fi
 step "Installing ripgrep ..."
 RG_ARCHIVE="$RUNTIME_DIR/rg.tar.gz"
 if download "$RG_URL" "$RG_ARCHIVE"; then
-    mkdir -p "$TMP_DIR/rg"
-    tar -xzf "$RG_ARCHIVE" -C "$TMP_DIR/rg" --strip-components=1
-    if [ -f "$TMP_DIR/rg/rg" ]; then
-        cp "$TMP_DIR/rg/rg" "$BIN_DIR/rg"
-        chmod +x "$BIN_DIR/rg"
-        done_msg "ripgrep ready"
-    elif [ -f "$TMP_DIR/rg/ripgrep-14.1.1-*/rg" ]; then
-        cp "$TMP_DIR/rg/ripgrep-"*/rg "$BIN_DIR/rg"
-        chmod +x "$BIN_DIR/rg"
-        done_msg "ripgrep ready"
-    else
-        warn "ripgrep binary not found in archive"
-    fi
-    rm -rf "$TMP_DIR/rg"
+  mkdir -p "$TMP_DIR/rg"
+  tar -xzf "$RG_ARCHIVE" -C "$TMP_DIR/rg" --strip-components=1
+  if [ -f "$TMP_DIR/rg/rg" ]; then
+    cp "$TMP_DIR/rg/rg" "$BIN_DIR/rg"
+    chmod +x "$BIN_DIR/rg"
+    done_msg "ripgrep ready"
+  elif [ -f "$TMP_DIR/rg/ripgrep-14.1.1-*/rg" ]; then
+    cp "$TMP_DIR/rg/ripgrep-"*/rg "$BIN_DIR/rg"
+    chmod +x "$BIN_DIR/rg"
+    done_msg "ripgrep ready"
+  else
+    warn "ripgrep binary not found in archive"
+  fi
+  rm -rf "$TMP_DIR/rg"
 else
-    warn "ripgrep not available for ${PLATFORM}-${ARCH} — Hermes will use grep fallback"
+  warn "ripgrep not available for ${PLATFORM}-${ARCH} — Hermes will use grep fallback"
 fi
 
 # ---------------------------------------------------------------------------
@@ -279,8 +269,8 @@ fi
 step "Downloading Hermes Agent source code ..."
 SRC_ARCHIVE="$RUNTIME_DIR/source.tar.gz"
 if ! download "$SOURCE_URL" "$SRC_ARCHIVE"; then
-    echo "[ERROR] Failed to download Hermes source. Aborting."
-    exit 1
+  echo "[ERROR] Failed to download Hermes source. Aborting."
+  exit 1
 fi
 rm -rf "$TMP_DIR/source"
 mkdir -p "$TMP_DIR/source"
@@ -293,12 +283,12 @@ done_msg "Source code ready"
 # 6. macOS gatekeeper / permissions cleanup
 # ---------------------------------------------------------------------------
 if [ "$PLATFORM" = "macos" ]; then
-    step "Removing macOS quarantine attributes ..."
-    xattr -dr com.apple.quarantine "$RUNTIME_DIR/python" 2>/dev/null || true
-    xattr -dr com.apple.quarantine "$RUNTIME_DIR/node" 2>/dev/null || true
-    xattr -dr com.apple.quarantine "$RUNTIME_DIR/uv" 2>/dev/null || true
-    xattr -dr com.apple.quarantine "$BIN_DIR" 2>/dev/null || true
-    done_msg "Gatekeeper attributes cleared"
+  step "Removing macOS quarantine attributes ..."
+  xattr -dr com.apple.quarantine "$RUNTIME_DIR/python" 2>/dev/null || true
+  xattr -dr com.apple.quarantine "$RUNTIME_DIR/node" 2>/dev/null || true
+  xattr -dr com.apple.quarantine "$RUNTIME_DIR/uv" 2>/dev/null || true
+  xattr -dr com.apple.quarantine "$BIN_DIR" 2>/dev/null || true
+  done_msg "Gatekeeper attributes cleared"
 fi
 
 # Make sure binaries are executable
@@ -311,20 +301,29 @@ chmod -R +x "$BIN_DIR" 2>/dev/null || true
 # 7. Create virtual environment
 # ---------------------------------------------------------------------------
 step "Creating Python virtual environment ..."
-PYTHON_EXE="$RUNTIME_DIR/python/bin/python3"
+PYTHON3_EXE="$RUNTIME_DIR/python/bin/python3"
+PYTHON_EXE="$RUNTIME_DIR/python/bin/python"
+VENV_TMP_DIR="/tmp/$RUNTIME_DIR/venv"
 VENV_DIR="$RUNTIME_DIR/venv"
 UV_EXE="$RUNTIME_DIR/uv/uv"
 
 if [ ! -x "$PYTHON_EXE" ]; then
-    echo "[ERROR] Python executable not found at $PYTHON_EXE"
-    exit 1
+  cp "$PYTHON3_EXE" "$PYTHON_EXE"
+  cp "$PYTHON_EXE" "$VENV_TMP_DIR/bin/python"
+fi
+
+if [ ! -x "$PYTHON_EXE" ]; then
+  echo "[ERROR] Python executable not found at $PYTHON_EXE"
+  exit 1
 fi
 
 # Bug fix: bare $? check doesn't work under set -e; use if ! pattern instead
-if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE"; then
-    echo "[ERROR] Failed to create virtual environment"
-    exit 1
+if ! "$UV_EXE" venv "$VENV_TMP_DIR" --python "$PYTHON_EXE"; then
+  echo "[ERROR] Failed to create virtual environment"
+  exit 1
 fi
+mkdir -p "$VENV_DIR"
+cp -rfL "$VENV_TMP_DIR"/* "$VENV_DIR"/ #2>/dev/null || true
 done_msg "Virtual environment ready"
 
 # ---------------------------------------------------------------------------
@@ -336,14 +335,14 @@ VENV_PYTHON="$VENV_DIR/bin/python"
 
 # Try uv first (faster), fall back to pip on unsupported filesystem (e.g. ExFAT)
 if ! "$UV_EXE" pip install --python "$VENV_PYTHON" --link-mode=copy -e "$SRC_DIR/hermes-agent[all]" 2>/dev/null; then
-    echo "        uv install failed — falling back to pip ..."
-    if ! "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
-        echo "[WARN] Could not install pip in virtual environment"
-    fi
-    if ! "$VENV_PYTHON" -m pip install -e "$SRC_DIR/hermes-agent[all]"; then
-        echo "[ERROR] Failed to install Hermes dependencies"
-        exit 1
-    fi
+  echo "        uv install failed — falling back to pip ..."
+  if ! "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
+    echo "[WARN] Could not install pip in virtual environment"
+  fi
+  if ! "$VENV_PYTHON" -m pip install -e "$SRC_DIR/hermes-agent[all]"; then
+    echo "[ERROR] Failed to install Hermes dependencies"
+    exit 1
+  fi
 fi
 done_msg "Dependencies installed"
 
@@ -357,13 +356,13 @@ done_msg "Dependencies installed"
 # ---------------------------------------------------------------------------
 step "Installing messaging dependencies (Telegram) ..."
 if ! "$UV_EXE" pip install --python "$VENV_PYTHON" --link-mode=copy "python-telegram-bot[webhooks]==22.6" 2>/dev/null; then
-    if ! "$VENV_PYTHON" -m pip install "python-telegram-bot[webhooks]==22.6" 2>/dev/null; then
-        warn "python-telegram-bot install failed - will retry on first use"
-    else
-        done_msg "python-telegram-bot ready"
-    fi
-else
+  if ! "$VENV_PYTHON" -m pip install "python-telegram-bot[webhooks]==22.6" 2>/dev/null; then
+    warn "python-telegram-bot install failed - will retry on first use"
+  else
     done_msg "python-telegram-bot ready"
+  fi
+else
+  done_msg "python-telegram-bot ready"
 fi
 
 # ---------------------------------------------------------------------------
@@ -372,9 +371,9 @@ fi
 step "Installing Playwright browsers (optional) ..."
 export PLAYWRIGHT_BROWSERS_PATH="$RUNTIME_DIR/playwright"
 if "$VENV_PYTHON" -m playwright install chromium 2>/dev/null; then
-    done_msg "Playwright browsers ready"
+  done_msg "Playwright browsers ready"
 else
-    warn "Playwright browser install failed (web tools may be limited)"
+  warn "Playwright browser install failed (web tools may be limited)"
 fi
 
 # ---------------------------------------------------------------------------
