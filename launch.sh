@@ -43,6 +43,16 @@ esac
 
 RUNTIME_DIR="$CACHE_DIR/runtimes/${PLATFORM}-${ARCH}"
 
+portable_id() {
+    if command -v md5sum >/dev/null 2>&1; then
+        printf '%s' "$1" | md5sum | cut -c1-8
+    elif command -v md5 >/dev/null 2>&1; then
+        printf '%s' "$1" | md5 | cut -c1-8
+    else
+        basename "$1" | tr -cd '[:alnum:]' | cut -c1-8
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # First-run setup
 # ---------------------------------------------------------------------------
@@ -93,7 +103,7 @@ if [ ! -x "$VIRTUAL_ENV/bin/python" ]; then
         LOCAL_BASE="/tmp"
     fi
 
-    DRIVE_ID="$(echo "$RUNTIME_DIR" | md5sum 2>/dev/null | cut -c1-8 || echo "hermes")"
+    DRIVE_ID="$(portable_id "$RUNTIME_DIR")"
     VIRTUAL_ENV="${LOCAL_BASE}/hermes-portable-venv-${DRIVE_ID}"
     export UV_CACHE_DIR="${LOCAL_BASE}/hermes-uv-cache-${DRIVE_ID}"
     mkdir -p "$UV_CACHE_DIR"

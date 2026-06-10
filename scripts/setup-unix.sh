@@ -14,8 +14,35 @@ if [ -z "$PORTABLE_ROOT" ]; then
   exit 1
 fi
 
+# Clean up macOS metadata junk files (._*) from exFAT drives to prevent pip/uv errors
+find "$PORTABLE_ROOT" -name "._*" -depth -exec rm -f {} \; 2>/dev/null || true
+
+
 CACHE_DIR="$PORTABLE_ROOT/.cache"
 SRC_DIR="$PORTABLE_ROOT/src"
+
+step() {
+  echo ""
+  echo "[SETUP] $1"
+}
+
+done_msg() {
+  echo "[OK]    $1"
+}
+
+warn() {
+  echo "[WARN]  $1"
+}
+
+portable_id() {
+  if command -v md5sum >/dev/null 2>&1; then
+    printf '%s' "$1" | md5sum | cut -c1-8
+  elif command -v md5 >/dev/null 2>&1; then
+    printf '%s' "$1" | md5 | cut -c1-8
+  else
+    basename "$1" | tr -cd '[:alnum:]' | cut -c1-8
+  fi
+}
 
 # ---------------------------------------------------------------------------
 # Detect platform
@@ -44,6 +71,7 @@ esac
 RUNTIME_DIR="$CACHE_DIR/runtimes/${PLATFORM}-${ARCH}"
 BIN_DIR="$RUNTIME_DIR/bin"
 TMP_DIR="$RUNTIME_DIR/_tmp"
+VENV_PATH_FILE="$RUNTIME_DIR/venv.path"
 
 mkdir -p "$RUNTIME_DIR" "$SRC_DIR" "$BIN_DIR" "$TMP_DIR"
 
@@ -51,7 +79,12 @@ mkdir -p "$RUNTIME_DIR" "$SRC_DIR" "$BIN_DIR" "$TMP_DIR"
 # Health check: if ready.flag exists but core files are missing, start fresh
 # ---------------------------------------------------------------------------
 if [ -f "$RUNTIME_DIR/ready.flag" ]; then
-  if [ ! -x "$RUNTIME_DIR/python/bin/python3" ] || [ ! -x "$RUNTIME_DIR/uv/uv" ] || [ ! -x "$RUNTIME_DIR/venv/bin/hermes" ]; then
+  if [ -f "$VENV_PATH_FILE" ]; then
+    HEALTH_VENV_DIR="$(cat "$VENV_PATH_FILE")"
+  else
+    HEALTH_VENV_DIR="$RUNTIME_DIR/venv"
+  fi
+  if [ ! -x "$RUNTIME_DIR/python/bin/python3" ] || [ ! -x "$RUNTIME_DIR/uv/uv" ] || [ ! -x "$HEALTH_VENV_DIR/bin/python" ]; then
     warn "ready.flag exists but core files are missing — restarting setup ..."
     rm -f "$RUNTIME_DIR/ready.flag"
   fi
@@ -79,22 +112,6 @@ else
 fi
 
 SOURCE_URL="https://github.com/NousResearch/hermes-agent/archive/refs/heads/main.tar.gz"
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-step() {
-  echo ""
-  echo "[SETUP] $1"
-}
-
-done_msg() {
-  echo "[OK]    $1"
-}
-
-warn() {
-  echo "[WARN]  $1"
-}
 
 download() {
   local url="$1"
@@ -171,7 +188,8 @@ extract_txz() {
     echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
     return 1
   fi
-  cp -rfL "$tmp_dir"/* "$dest"/ 2>/dev/null || true
+  cp -R -L "$tmp_dir"/. "$dest"/ 2>/dev/null || true
+  rm -rf "$tmp_dir"
 }
 
 # ---------------------------------------------------------------------------
@@ -303,13 +321,10 @@ chmod -R +x "$BIN_DIR" 2>/dev/null || true
 step "Creating Python virtual environment ..."
 PYTHON3_EXE="$RUNTIME_DIR/python/bin/python3"
 PYTHON_EXE="$RUNTIME_DIR/python/bin/python"
-VENV_TMP_DIR="/tmp/$RUNTIME_DIR/venv"
-VENV_DIR="$RUNTIME_DIR/venv"
 UV_EXE="$RUNTIME_DIR/uv/uv"
 
 if [ ! -x "$PYTHON_EXE" ]; then
   cp "$PYTHON3_EXE" "$PYTHON_EXE"
-  cp "$PYTHON_EXE" "$VENV_TMP_DIR/bin/python"
 fi
 
 if [ ! -x "$PYTHON_EXE" ]; then
@@ -317,13 +332,26 @@ if [ ! -x "$PYTHON_EXE" ]; then
   exit 1
 fi
 
-# Bug fix: bare $? check doesn't work under set -e; use if ! pattern instead
-if ! "$UV_EXE" venv "$VENV_TMP_DIR" --python "$PYTHON_EXE"; then
-  echo "[ERROR] Failed to create virtual environment"
-  exit 1
+if [ "$PLATFORM" = "macos" ]; then
+  LOCAL_BASE="${TMPDIR:-/tmp}"
+else
+  LOCAL_BASE="/tmp"
 fi
-mkdir -p "$VENV_DIR"
-cp -rfL "$VENV_TMP_DIR"/* "$VENV_DIR"/ #2>/dev/null || true
+
+DRIVE_ID="$(portable_id "$RUNTIME_DIR")"
+VENV_DIR="${LOCAL_BASE%/}/hermes-portable-venv-${DRIVE_ID}"
+export UV_CACHE_DIR="${LOCAL_BASE%/}/hermes-uv-cache-${DRIVE_ID}"
+mkdir -p "$UV_CACHE_DIR"
+echo "$VENV_DIR" > "$VENV_PATH_FILE"
+
+rm -rf "$VENV_DIR"
+if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE" --seed 2>/dev/null; then
+  rm -rf "$VENV_DIR"
+  if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE"; then
+    echo "[ERROR] Failed to create virtual environment"
+    exit 1
+  fi
+fi
 done_msg "Virtual environment ready"
 
 # ---------------------------------------------------------------------------
@@ -347,7 +375,21 @@ fi
 done_msg "Dependencies installed"
 
 # ---------------------------------------------------------------------------
-# 9. Install messaging dependencies (Telegram, etc.)
+# 9. Install provider dependencies
+# ---------------------------------------------------------------------------
+step "Installing provider dependencies ..."
+if ! "$UV_EXE" pip install --python "$VENV_PYTHON" --link-mode=copy "anthropic>=0.39.0" 2>/dev/null; then
+  if ! "$VENV_PYTHON" -m pip install "anthropic>=0.39.0" 2>/dev/null; then
+    warn "Anthropic provider install failed - install may retry on first use"
+  else
+    done_msg "Provider dependencies ready"
+  fi
+else
+  done_msg "Provider dependencies ready"
+fi
+
+# ---------------------------------------------------------------------------
+# 10. Install messaging dependencies (Telegram, etc.)
 # ---------------------------------------------------------------------------
 # Hermes [all] intentionally excludes messaging deps for size.
 # The lazy-install system is supposed to auto-install on first use,
@@ -366,7 +408,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 10. Install Playwright browsers (optional)
+# 11. Install Playwright browsers (optional)
 # ---------------------------------------------------------------------------
 step "Installing Playwright browsers (optional) ..."
 export PLAYWRIGHT_BROWSERS_PATH="$RUNTIME_DIR/playwright"
@@ -377,7 +419,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 11. Mark ready
+# 12. Mark ready
 # ---------------------------------------------------------------------------
 touch "$RUNTIME_DIR/ready.flag"
 rm -rf "$TMP_DIR"

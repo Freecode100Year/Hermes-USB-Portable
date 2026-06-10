@@ -58,6 +58,19 @@ set "APPDATA=%PORTABLE_ROOT%\.cache\windows-appdata"
 set "LOCALAPPDATA=%PORTABLE_ROOT%\.cache\windows-localappdata"
 
 REM ---------------------------------------------------------------------------
+REM Update pyvenv.cfg with the current absolute path to ensure portability
+REM ---------------------------------------------------------------------------
+if exist "%VIRTUAL_ENV%\pyvenv.cfg" (
+    for /f "tokens=2" %%v in ('"%RUNTIME_DIR%\python\python.exe" --version 2^>nul') do set "PYTHON_VERSION=%%v"
+    if not defined PYTHON_VERSION set "PYTHON_VERSION=3.11.15"
+    (
+    echo home = %RUNTIME_DIR%\python
+    echo include-system-site-packages = false
+    echo version = !PYTHON_VERSION!
+    ) > "%VIRTUAL_ENV%\pyvenv.cfg"
+)
+
+REM ---------------------------------------------------------------------------
 REM Launch Hermes
 REM ---------------------------------------------------------------------------
 if not exist "%SRC_DIR%\hermes-agent" (
@@ -76,7 +89,7 @@ if /I "%~1"=="hermes" (
 
 REM If explicit arguments were passed, run Hermes directly (skip menu)
 if not "%ARGS%"=="" (
-    hermes %ARGS%
+    python -c "from hermes_cli.main import main; main()" %ARGS%
     exit /b
 )
 
@@ -204,23 +217,23 @@ REM Menu Actions
 REM ---------------------------------------------------------------------------
 :menu_chat
 echo.
-hermes
+python -c "from hermes_cli.main import main; main()"
 goto :show_menu
 
 :menu_setup
 echo.
-hermes setup
+python -c "from hermes_cli.main import main; main()" setup
 goto :detect_status
 
 :menu_gateway
 if "!GATEWAY_STATUS!"=="Running (PID !GATEWAY_PID!)" (
-    hermes gateway stop
+    python -c "from hermes_cli.main import main; main()" gateway stop
     echo.
     echo %BRIGHT_GREEN%Gateway stopped.%RESET%
 ) else (
     echo.
     echo %CYAN%Starting gateway in background ...%RESET%
-    start "" hermes gateway
+    start "" python -c "from hermes_cli.main import main; main()" gateway
     timeout /t 2 /nobreak >nul
 )
 pause
@@ -264,7 +277,7 @@ goto :show_advanced
 
 :adv_doctor
 echo.
-hermes doctor
+python -c "from hermes_cli.main import main; main()" doctor
 pause
 goto :show_advanced
 
@@ -282,11 +295,11 @@ goto :show_advanced
 
 :adv_config
 echo.
-hermes config edit
+python -c "from hermes_cli.main import main; main()" config edit
 goto :show_advanced
 
 :adv_restart
-hermes gateway restart
+python -c "from hermes_cli.main import main; main()" gateway restart
 echo.
 echo %BRIGHT_GREEN%Gateway restarted.%RESET%
 pause
@@ -294,6 +307,6 @@ goto :detect_status
 
 :adv_update
 echo.
-hermes update
+python -c "from hermes_cli.main import main; main()" update
 pause
 goto :show_advanced
