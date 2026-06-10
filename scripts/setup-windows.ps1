@@ -202,6 +202,18 @@ function Move-SubfolderContents($Source, $Dest) {
     }
 }
 
+function Copy-DirectoryContents($Source, $Dest) {
+    if (Test-Path $Dest) {
+        try {
+            Remove-Item $Dest -Recurse -Force -ErrorAction Stop
+        } catch {
+            Get-ChildItem $Dest -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    New-Item -ItemType Directory -Force -Path $Dest | Out-Null
+    Copy-Item (Join-Path $Source "*") $Dest -Recurse -Force
+}
+
 # ---------------------------------------------------------------------------
 # Health check: if ready.flag exists but core files are missing, start fresh
 # ---------------------------------------------------------------------------
@@ -290,8 +302,7 @@ if (-not $srcSub) {
     throw "Hermes source archive did not contain a source folder"
 }
 $destSrc = Join-Path $SrcDir "hermes-agent"
-if (Test-Path $destSrc) { Remove-Item $destSrc -Recurse -Force }
-Move-Item $srcSub.FullName $destSrc -Force
+Copy-DirectoryContents $srcSub.FullName $destSrc
 Write-Done "Source code ready"
 
 # ---------------------------------------------------------------------------
