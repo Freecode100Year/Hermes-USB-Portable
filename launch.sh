@@ -145,6 +145,19 @@ mkdir -p "$HOME"
 # ---------------------------------------------------------------------------
 # Launch Hermes
 # ---------------------------------------------------------------------------
+# Prompt for update
+echo ""
+read -p "是否联网检查并更新Hermes官方github到最新开发版？[y/n] (默认: n): " update_choice
+update_choice=${update_choice:-n}
+if [ "$update_choice" = "y" ] || [ "$update_choice" = "Y" ]; then
+    echo ""
+    echo "正在联网更新 Hermes ..."
+    bash "$PORTABLE_ROOT/scripts/update-unix.sh" "$PORTABLE_ROOT" || {
+        echo "[WARN] 更新失败，请检查网络。"
+        read -p "Press Enter to continue ..."
+    }
+fi
+
 if [ ! -d "$SRC_DIR/hermes-agent" ]; then
     echo "[ERROR] Hermes source not found. Please delete .cache and try again."
     exit 1
@@ -379,7 +392,8 @@ adv_restart() {
 
 adv_update() {
     clear
-    hermes update
+    echo "正在从 GitHub 更新 Hermes ..."
+    bash "$PORTABLE_ROOT/scripts/update-unix.sh" "$PORTABLE_ROOT"
     read -p "Press Enter to continue ..."
     show_advanced
 }

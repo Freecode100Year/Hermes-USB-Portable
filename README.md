@@ -1,10 +1,24 @@
-# <p align="center">🛸 Hermes Agent — Portable & Cross-Platform</p>
+# <p align="center">🛸 Hermes Agent — Portable & Cross-Platform (二次创作/非原创版本)</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Hermes_Agent-Portable-8A2BE2?style=for-the-badge&logo=ai" alt="Hermes Agent Portable">
   <img src="https://img.shields.io/github/license/NousResearch/hermes-agent?style=for-the-badge&color=2563EB" alt="License">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-059669?style=for-the-badge" alt="Platforms">
 </p>
+
+> [!IMPORTANT]
+> **声明**：本仓库是基于原作者 [techjarves/Hermes-USB-Portable](https://github.com/techjarves/Hermes-USB-Portable) 的开源项目进行的**二次创作**，并非原创。本版本进行了一些定制修改和功能优化，版权归原作者所有。
+
+---
+
+## 📢 最新更新与修正日志 (Update & Bugfix Logs)
+
+### **v1.1.0-custom (2026-07-01)**
+*   **更新功能 (New Features)**:
+    *   **GitHub 自动更新提示**：在 Windows (`launch.bat`) 和 Linux/macOS (`launch.sh`) 启动时，新增了交互式提示，用户可选择是否联网检查并更新 Hermes 核心程序到官方 GitHub 最新开发版。
+    *   **工具菜单更新选项优化**：在高级选项 (Advanced Options) 的选项 `[5] Update Hermes` 中，已将原本的更新方式修改为直接拉取 [Nous Research Hermes Agent 官方 GitHub 最新开发版本](https://github.com/nousresearch/hermes-agent) 的源码，并更新依赖环境。
+*   **修正的 Bug (Bugfixes)**:
+    *   消除了由于便携式环境下本地 update 命令在离线/特定目录下无法获取官方 GitHub 最新更新的问题。
 
 ---
 
@@ -89,7 +103,9 @@ hermes-portable/
 ├── launch.sh                  # macOS & Linux interactive launcher script
 ├── scripts/
 │   ├── setup-windows.ps1      # Windows first-run configuration script
-│   └── setup-unix.sh          # Unix (macOS/Linux) first-run configuration script
+│   ├── setup-unix.sh          # Unix (macOS/Linux) first-run configuration script
+│   ├── update-windows.ps1     # Windows manual/auto update script (Added in custom build)
+│   └── update-unix.sh         # Unix (macOS/Linux) manual/auto update script (Added in custom build)
 ├── data/                      # ⚠️ [BACKUP THIS] All your private files
 │   ├── config.yaml            # Hermes LLM provider configurations
 │   ├── .env                   # API Keys and active credentials
@@ -195,7 +211,7 @@ Keep your agent up-to-date with the latest improvements from Nous Research:
     ```text
     /hermes update
     ```
-*   **Via Launcher**: Navigate to `[4] Advanced Options` -> `[5] Update Hermes` in the Launcher terminal dashboard.
+*   **Via Launcher**: Navigate to `[4] Advanced Options` -> `[5] Update Hermes` in the Launcher terminal dashboard. This will pull the latest version directly from GitHub.
 *   **Manual Rebuild**: Delete `.cache/runtimes/<your-platform>` and the `src/hermes-agent` directory, then re-run the launcher to fetch the latest code from scratch.
 
 ---

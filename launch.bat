@@ -73,6 +73,19 @@ if exist "%VIRTUAL_ENV%\pyvenv.cfg" (
 REM ---------------------------------------------------------------------------
 REM Launch Hermes
 REM ---------------------------------------------------------------------------
+REM Prompt for update
+echo.
+set /p "UPDATE_CHOICE=是否联网检查并更新Hermes官方github到最新开发版？[Y/N] (默认: N): "
+if /I "!UPDATE_CHOICE!"=="Y" (
+    echo.
+    echo 正在联网更新 Hermes ...
+    powershell -ExecutionPolicy Bypass -File "%PORTABLE_ROOT%\scripts\update-windows.ps1" -Root "%PORTABLE_ROOT%"
+    if errorlevel 1 (
+        echo [WARN] 更新失败，请检查网络。
+        pause
+    )
+)
+
 if not exist "%SRC_DIR%\hermes-agent" (
     echo [ERROR] Hermes source not found. Please delete .cache and try again.
     pause
@@ -307,6 +320,7 @@ goto :detect_status
 
 :adv_update
 echo.
-python -c "from hermes_cli.main import main; main()" update
+echo 正在从 GitHub 更新 Hermes ...
+powershell -ExecutionPolicy Bypass -File "%PORTABLE_ROOT%\scripts\update-windows.ps1" -Root "%PORTABLE_ROOT%"
 pause
 goto :show_advanced
