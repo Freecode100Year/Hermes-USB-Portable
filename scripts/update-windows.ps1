@@ -11,7 +11,7 @@ $SrcDir     = Join-Path $Root "src"
 $TempDir    = Join-Path $Root ".tmp"
 $SourceUrl  = "https://github.com/NousResearch/hermes-agent/archive/refs/heads/main.zip"
 
-Write-Host "正在从 GitHub 下载最新版 Hermes Agent..." -ForegroundColor Cyan
+Write-Host "Downloading the latest Hermes Agent from GitHub..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
 $srcArchive = Join-Path $RuntimeDir "source.zip"
@@ -22,7 +22,7 @@ if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
     Invoke-WebRequest -Uri $SourceUrl -OutFile $srcArchive -UseBasicParsing
 }
 
-Write-Host "正在解压并安装最新版..." -ForegroundColor Cyan
+Write-Host "Extracting and installing the latest version..." -ForegroundColor Cyan
 $srcTemp = Join-Path $TempDir "source"
 if (Test-Path $srcTemp) { Remove-Item $srcTemp -Recurse -Force -ErrorAction SilentlyContinue }
 Expand-Archive -Path $srcArchive -DestinationPath $srcTemp -Force
@@ -46,7 +46,7 @@ Copy-Item (Join-Path $srcSub.FullName "*") $destSrc -Recurse -Force
 $venvPython = Join-Path $RuntimeDir "venv\Scripts\python.exe"
 $uvExe      = Join-Path $RuntimeDir "uv\uv.exe"
 
-Write-Host "正在更新依赖..." -ForegroundColor Cyan
+Write-Host "Updating dependencies..." -ForegroundColor Cyan
 if (Test-Path $uvExe) {
     & $uvExe pip install --python $venvPython --link-mode=copy -e "$destSrc[all]"
 } else {
@@ -54,4 +54,4 @@ if (Test-Path $uvExe) {
 }
 
 Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "Hermes 核心程序更新成功！" -ForegroundColor Green
+Write-Host "Hermes core updated successfully!" -ForegroundColor Green

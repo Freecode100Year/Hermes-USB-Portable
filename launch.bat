@@ -75,13 +75,13 @@ REM Launch Hermes
 REM ---------------------------------------------------------------------------
 REM Prompt for update
 echo.
-set /p "UPDATE_CHOICE=是否联网检查并更新Hermes官方github到最新开发版？[Y/N] (默认: N): "
+set /p "UPDATE_CHOICE=Check and update Hermes core to the latest GitHub version? [Y/N] (default: N): "
 if /I "!UPDATE_CHOICE!"=="Y" (
     echo.
-    echo 正在联网更新 Hermes ...
+    echo Updating Hermes from GitHub...
     powershell -ExecutionPolicy Bypass -File "%PORTABLE_ROOT%\scripts\update-windows.ps1" -Root "%PORTABLE_ROOT%"
     if errorlevel 1 (
-        echo [WARN] 更新失败，请检查网络。
+        echo [WARN] Update failed. Please check your network connection.
         pause
     )
 )
@@ -320,7 +320,7 @@ goto :detect_status
 
 :adv_update
 echo.
-echo 正在从 GitHub 更新 Hermes ...
+echo Updating Hermes from GitHub...
 powershell -ExecutionPolicy Bypass -File "%PORTABLE_ROOT%\scripts\update-windows.ps1" -Root "%PORTABLE_ROOT%"
 pause
 goto :show_advanced
